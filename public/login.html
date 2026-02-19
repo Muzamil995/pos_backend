@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - POS Super Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      max-width: 420px;
+      width: 100%;
+      padding: 40px;
+      animation: slideUp 0.5s ease;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #2c3e50;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .header p {
+      color: #7f8c8d;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #2c3e50;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      font-family: inherit;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    input::placeholder {
+      color: #bdc3c7;
+    }
+
+    .error-message {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    input.error {
+      border-color: #e74c3c;
+    }
+
+    .password-toggle {
+      position: relative;
+    }
+
+    .toggle-icon {
+      position: absolute;
+      right: 15px;
+      top: 38px;
+      cursor: pointer;
+      color: #7f8c8d;
+      transition: all 0.3s ease;
+    }
+
+    .toggle-icon:hover {
+      color: #667eea;
+    }
+
+    .remember-forgot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      margin-bottom: 20px;
+      margin-top: 10px;
+    }
+
+    .remember-forgot label {
+      margin: 0;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .remember-forgot a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .remember-forgot a:hover {
+      color: #764ba2;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .signup-link {
+      text-align: center;
+      margin-top: 20px;
+      color: #7f8c8d;
+      font-size: 14px;
+    }
+
+    .signup-link a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .signup-link a:hover {
+      color: #764ba2;
+    }
+
+    .alert-message {
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    .alert-message.show {
+      display: block;
+    }
+
+    .alert-error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .alert-success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .divider {
+      text-align: center;
+      margin: 20px 0;
+      color: #bdc3c7;
+      font-size: 12px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      display: inline-block;
+      width: 40%;
+      height: 1px;
+      background-color: #ddd;
+      vertical-align: middle;
+      margin: 0 5px;
+    }
+
+    .demo-info {
+      background-color: #e3f2fd;
+      border: 1px solid #bbdefb;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #1565c0;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 25px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .header p {
+        font-size: 13px;
+      }
+
+      .remember-forgot {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>
+        <i class="fas fa-sign-in-alt"></i>
+        Welcome Back
+      </h1>
+      <p>Login to your POS Super Admin Account</p>
+    </div>
+
+    <!-- Demo Info -->
+    <div class="demo-info">
+      <i class="fas fa-info-circle"></i> 
+      Demo credentials: Use the account you registered
+    </div>
+
+    <!-- Error Message -->
+    <div id="errorMessage" class="alert-message alert-error">
+      <i class="fas fa-exclamation-circle"></i> <span id="errorText"></span>
+    </div>
+
+    <!-- Success Message -->
+    <div id="successMessage" class="alert-message alert-success">
+      <i class="fas fa-check-circle"></i> Login successful! Redirecting...
+    </div>
+
+    <!-- Login Form -->
+    <form id="loginForm">
+      <!-- Email -->
+      <div class="form-group">
+        <label for="email">
+          <i class="fas fa-envelope"></i> Email Address
+        </label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          placeholder="john@example.com"
+          required
+        >
+        <div class="error-message" id="emailError"></div>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label for="password">
+          <i class="fas fa-lock"></i> Password
+        </label>
+        <div class="password-toggle">
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Enter your password"
+            required
+          >
+          <i class="fas fa-eye toggle-icon" id="togglePassword"></i>
+        </div>
+        <div class="error-message" id="passwordError"></div>
+      </div>
+
+      <!-- Remember & Forgot -->
+      <div class="remember-forgot">
+        <label>
+          <input type="checkbox" id="rememberMe"> Remember me
+        </label>
+        <a href="#" onclick="alert('Forgot password functionality coming soon'); return false;">
+          Forgot password?
+        </a>
+      </div>
+
+      <!-- Submit Button -->
+      <button type="submit" class="submit-btn" id="submitBtn">
+        <i class="fas fa-sign-in-alt"></i> Login
+      </button>
+    </form>
+
+    <!-- Signup Link -->
+    <div class="signup-link">
+      Don't have an account? <a href="register.html">Sign up here</a>
+    </div>
+  </div>
+
+  <script>
+    const LoginForm = {
+      form: document.getElementById('loginForm'),
+      emailInput: document.getElementById('email'),
+      passwordInput: document.getElementById('password'),
+      rememberMeCheckbox: document.getElementById('rememberMe'),
+      submitBtn: document.getElementById('submitBtn'),
+      errorMessage: document.getElementById('errorMessage'),
+      errorText: document.getElementById('errorText'),
+      successMessage: document.getElementById('successMessage'),
+
+      init: function() {
+        this.attachEventListeners();
+        this.loadSavedEmail();
+      },
+
+      attachEventListeners: function() {
+        this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+        // Password toggle
+        document.getElementById('togglePassword').addEventListener('click', (e) => {
+          this.togglePasswordVisibility(this.passwordInput, e.target);
+        });
+
+        // Real-time validation
+        this.emailInput.addEventListener('blur', () => this.validateEmail());
+        this.passwordInput.addEventListener('blur', () => this.validatePassword());
+      },
+
+      loadSavedEmail: function() {
+        const savedEmail = localStorage.getItem('savedEmail');
+        if (savedEmail) {
+          this.emailInput.value = savedEmail;
+          this.rememberMeCheckbox.checked = true;
+        }
+      },
+
+      togglePasswordVisibility: function(input, icon) {
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.classList.remove('fa-eye');
+          icon.classList.add('fa-eye-slash');
+        } else {
+          input.type = 'password';
+          icon.classList.remove('fa-eye-slash');
+          icon.classList.add('fa-eye');
+        }
+      },
+
+      validateEmail: function() {
+        const email = this.emailInput.value.trim();
+        const error = document.getElementById('emailError');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!email) {
+          this.showError(this.emailInput, error, 'Email is required');
+          return false;
+        }
+
+        if (!emailRegex.test(email)) {
+          this.showError(this.emailInput, error, 'Please enter a valid email');
+          return false;
+        }
+
+        this.clearError(this.emailInput, error);
+        return true;
+      },
+
+      validatePassword: function() {
+        const password = this.passwordInput.value;
+        const error = document.getElementById('passwordError');
+
+        if (!password) {
+          this.showError(this.passwordInput, error, 'Password is required');
+          return false;
+        }
+
+        if (password.length < 6) {
+          this.showError(this.passwordInput, error, 'Password must be at least 6 characters');
+          return false;
+        }
+
+        this.clearError(this.passwordInput, error);
+        return true;
+      },
+
+      showError: function(input, errorElement, message) {
+        input.classList.add('error');
+        errorElement.textContent = message;
+        errorElement.classList.add('show');
+      },
+
+      clearError: function(input, errorElement) {
+        input.classList.remove('error');
+        errorElement.textContent = '';
+        errorElement.classList.remove('show');
+      },
+
+      hideAlert: function(element) {
+        element.classList.remove('show');
+      },
+
+      handleSubmit: async function(e) {
+        e.preventDefault();
+
+        // Validate fields
+        const isEmailValid = this.validateEmail();
+        const isPasswordValid = this.validatePassword();
+
+        if (!isEmailValid || !isPasswordValid) {
+          return;
+        }
+
+        // Hide previous messages
+        this.hideAlert(this.errorMessage);
+        this.hideAlert(this.successMessage);
+
+        this.submitBtn.disabled = true;
+        this.submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+
+        try {
+          const response = await fetch('http://localhost:3000/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: this.emailInput.value.trim(),
+              password: this.passwordInput.value
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.token) {
+            // Save token
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+
+            // Save email if remember me is checked
+            if (this.rememberMeCheckbox.checked) {
+              localStorage.setItem('savedEmail', this.emailInput.value.trim());
+            } else {
+              localStorage.removeItem('savedEmail');
+            }
+
+            this.successMessage.classList.add('show');
+            
+            // Redirect to dashboard after 1.5 seconds
+            setTimeout(() => {
+              window.location.href = 'index.html';
+            }, 1500);
+          } else {
+            this.showErrorMessage(data.error || 'Login failed. Please check your credentials.');
+            this.submitBtn.disabled = false;
+            this.submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+          }
+        } catch (err) {
+          console.error('Error:', err);
+          this.showErrorMessage('An error occurred. Please try again.');
+          this.submitBtn.disabled = false;
+          this.submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+        }
+      },
+
+      showErrorMessage: function(message) {
+        this.errorText.textContent = message;
+        this.errorMessage.classList.add('show');
+      }
+    };
+
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      LoginForm.init();
+    });
+  </script>
+</body>
+</html>

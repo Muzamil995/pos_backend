@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - POS Super Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      max-width: 450px;
+      width: 100%;
+      padding: 40px;
+      animation: slideUp 0.5s ease;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #2c3e50;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .header p {
+      color: #7f8c8d;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #2c3e50;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      font-family: inherit;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    input::placeholder {
+      color: #bdc3c7;
+    }
+
+    .error-message {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    input.error,
+    select.error {
+      border-color: #e74c3c;
+    }
+
+    .password-toggle {
+      position: relative;
+    }
+
+    .toggle-icon {
+      position: absolute;
+      right: 15px;
+      top: 38px;
+      cursor: pointer;
+      color: #7f8c8d;
+      transition: all 0.3s ease;
+    }
+
+    .toggle-icon:hover {
+      color: #667eea;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .login-link {
+      text-align: center;
+      margin-top: 20px;
+      color: #7f8c8d;
+      font-size: 14px;
+    }
+
+    .login-link a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .login-link a:hover {
+      color: #764ba2;
+    }
+
+    .success-message {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+      text-align: center;
+      border: 1px solid #c3e6cb;
+    }
+
+    .success-message.show {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .alert-message {
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    .alert-message.show {
+      display: block;
+    }
+
+    .alert-error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .password-strength {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #7f8c8d;
+    }
+
+    .strength-bar {
+      height: 4px;
+      background-color: #ecf0f1;
+      border-radius: 2px;
+      margin-top: 5px;
+      overflow: hidden;
+    }
+
+    .strength-indicator {
+      height: 100%;
+      width: 0%;
+      transition: all 0.3s ease;
+    }
+
+    .strength-weak { background-color: #e74c3c; }
+    .strength-medium { background-color: #f39c12; }
+    .strength-strong { background-color: #27ae60; }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 25px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .header p {
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>
+        <i class="fas fa-user-plus"></i>
+        Create Account
+      </h1>
+      <p>Join POS Super Admin System</p>
+    </div>
+
+    <!-- Messages -->
+    <div id="successMessage" class="success-message">
+      <i class="fas fa-check-circle"></i> Account created successfully! Redirecting...
+    </div>
+
+    <div id="errorMessage" class="alert-message alert-error">
+      <i class="fas fa-exclamation-circle"></i> <span id="errorText"></span>
+    </div>
+
+    <!-- Register Form -->
+    <form id="registerForm">
+      <!-- Full Name -->
+      <div class="form-group">
+        <label for="name">
+          <i class="fas fa-user"></i> Full Name
+        </label>
+        <input 
+          type="text" 
+          id="name" 
+          name="name" 
+          placeholder="John Doe"
+          required
+        >
+        <div class="error-message" id="nameError"></div>
+      </div>
+
+      <!-- Email -->
+      <div class="form-group">
+        <label for="email">
+          <i class="fas fa-envelope"></i> Email Address
+        </label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          placeholder="john@example.com"
+          required
+        >
+        <div class="error-message" id="emailError"></div>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label for="password">
+          <i class="fas fa-lock"></i> Password
+        </label>
+        <div class="password-toggle">
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Enter password (min 6 characters)"
+            required
+          >
+          <i class="fas fa-eye toggle-icon" id="togglePassword"></i>
+        </div>
+        <div class="password-strength">
+          <div class="strength-bar">
+            <div class="strength-indicator" id="strengthIndicator"></div>
+          </div>
+          <span id="strengthText">Weak</span>
+        </div>
+        <div class="error-message" id="passwordError"></div>
+      </div>
+
+      <!-- Confirm Password -->
+      <div class="form-group">
+        <label for="confirmPassword">
+          <i class="fas fa-lock"></i> Confirm Password
+        </label>
+        <div class="password-toggle">
+          <input 
+            type="password" 
+            id="confirmPassword" 
+            name="confirmPassword" 
+            placeholder="Confirm password"
+            required
+          >
+          <i class="fas fa-eye toggle-icon" id="toggleConfirmPassword"></i>
+        </div>
+        <div class="error-message" id="confirmPasswordError"></div>
+      </div>
+
+      <!-- Submit Button -->
+      <button type="submit" class="submit-btn" id="submitBtn">
+        <i class="fas fa-check"></i> Create Account
+      </button>
+    </form>
+
+    <!-- Login Link -->
+    <div class="login-link">
+      Already have an account? <a href="login.html">Login here</a>
+    </div>
+  </div>
+
+  <script>
+    const RegisterForm = {
+      form: document.getElementById('registerForm'),
+      nameInput: document.getElementById('name'),
+      emailInput: document.getElementById('email'),
+      passwordInput: document.getElementById('password'),
+      confirmPasswordInput: document.getElementById('confirmPassword'),
+      submitBtn: document.getElementById('submitBtn'),
+      successMessage: document.getElementById('successMessage'),
+      errorMessage: document.getElementById('errorMessage'),
+      errorText: document.getElementById('errorText'),
+
+      init: function() {
+        this.attachEventListeners();
+      },
+
+      attachEventListeners: function() {
+        this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+        // Password toggle
+        document.getElementById('togglePassword').addEventListener('click', (e) => {
+          this.togglePasswordVisibility(this.passwordInput, e.target);
+        });
+
+        document.getElementById('toggleConfirmPassword').addEventListener('click', (e) => {
+          this.togglePasswordVisibility(this.confirmPasswordInput, e.target);
+        });
+
+        // Password strength indicator
+        this.passwordInput.addEventListener('input', () => this.updatePasswordStrength());
+
+        // Real-time validation
+        this.nameInput.addEventListener('blur', () => this.validateName());
+        this.emailInput.addEventListener('blur', () => this.validateEmail());
+        this.passwordInput.addEventListener('blur', () => this.validatePassword());
+        this.confirmPasswordInput.addEventListener('blur', () => this.validateConfirmPassword());
+      },
+
+      togglePasswordVisibility: function(input, icon) {
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.classList.remove('fa-eye');
+          icon.classList.add('fa-eye-slash');
+        } else {
+          input.type = 'password';
+          icon.classList.remove('fa-eye-slash');
+          icon.classList.add('fa-eye');
+        }
+      },
+
+      updatePasswordStrength: function() {
+        const password = this.passwordInput.value;
+        const strengthIndicator = document.getElementById('strengthIndicator');
+        const strengthText = document.getElementById('strengthText');
+        
+        let strength = 0;
+        
+        if (password.length >= 6) strength++;
+        if (password.length >= 8) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+        const percentage = (strength / 5) * 100;
+        strengthIndicator.style.width = percentage + '%';
+
+        if (strength <= 1) {
+          strengthIndicator.className = 'strength-indicator strength-weak';
+          strengthText.textContent = 'Weak';
+        } else if (strength <= 3) {
+          strengthIndicator.className = 'strength-indicator strength-medium';
+          strengthText.textContent = 'Medium';
+        } else {
+          strengthIndicator.className = 'strength-indicator strength-strong';
+          strengthText.textContent = 'Strong';
+        }
+      },
+
+      validateName: function() {
+        const name = this.nameInput.value.trim();
+        const error = document.getElementById('nameError');
+
+        if (!name) {
+          this.showError(this.nameInput, error, 'Name is required');
+          return false;
+        }
+
+        if (name.length < 2) {
+          this.showError(this.nameInput, error, 'Name must be at least 2 characters');
+          return false;
+        }
+
+        this.clearError(this.nameInput, error);
+        return true;
+      },
+
+      validateEmail: function() {
+        const email = this.emailInput.value.trim();
+        const error = document.getElementById('emailError');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!email) {
+          this.showError(this.emailInput, error, 'Email is required');
+          return false;
+        }
+
+        if (!emailRegex.test(email)) {
+          this.showError(this.emailInput, error, 'Please enter a valid email');
+          return false;
+        }
+
+        this.clearError(this.emailInput, error);
+        return true;
+      },
+
+      validatePassword: function() {
+        const password = this.passwordInput.value;
+        const error = document.getElementById('passwordError');
+
+        if (!password) {
+          this.showError(this.passwordInput, error, 'Password is required');
+          return false;
+        }
+
+        if (password.length < 6) {
+          this.showError(this.passwordInput, error, 'Password must be at least 6 characters');
+          return false;
+        }
+
+        this.clearError(this.passwordInput, error);
+        return true;
+      },
+
+      validateConfirmPassword: function() {
+        const password = this.passwordInput.value;
+        const confirmPassword = this.confirmPasswordInput.value;
+        const error = document.getElementById('confirmPasswordError');
+
+        if (!confirmPassword) {
+          this.showError(this.confirmPasswordInput, error, 'Please confirm password');
+          return false;
+        }
+
+        if (password !== confirmPassword) {
+          this.showError(this.confirmPasswordInput, error, 'Passwords do not match');
+          return false;
+        }
+
+        this.clearError(this.confirmPasswordInput, error);
+        return true;
+      },
+
+      showError: function(input, errorElement, message) {
+        input.classList.add('error');
+        errorElement.textContent = message;
+        errorElement.classList.add('show');
+      },
+
+      clearError: function(input, errorElement) {
+        input.classList.remove('error');
+        errorElement.textContent = '';
+        errorElement.classList.remove('show');
+      },
+
+      handleSubmit: async function(e) {
+        e.preventDefault();
+
+        // Validate all fields
+        const isNameValid = this.validateName();
+        const isEmailValid = this.validateEmail();
+        const isPasswordValid = this.validatePassword();
+        const isConfirmPasswordValid = this.validateConfirmPassword();
+
+        if (!isNameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
+          return;
+        }
+
+        this.submitBtn.disabled = true;
+        this.submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+
+        try {
+          const response = await fetch('http://localhost:3000/api/auth/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              name: this.nameInput.value.trim(),
+              email: this.emailInput.value.trim(),
+              password: this.passwordInput.value
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.successMessage.classList.add('show');
+            this.form.reset();
+            
+            // Redirect to login after 2 seconds
+            setTimeout(() => {
+              window.location.href = 'login.html';
+            }, 2000);
+          } else {
+            this.showErrorMessage(data.error || 'Registration failed');
+            this.submitBtn.disabled = false;
+            this.submitBtn.innerHTML = '<i class="fas fa-check"></i> Create Account';
+          }
+        } catch (err) {
+          console.error('Error:', err);
+          this.showErrorMessage('An error occurred. Please try again.');
+          this.submitBtn.disabled = false;
+          this.submitBtn.innerHTML = '<i class="fas fa-check"></i> Create Account';
+        }
+      },
+
+      showErrorMessage: function(message) {
+        this.errorText.textContent = message;
+        this.errorMessage.classList.add('show');
+      }
+    };
+
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      RegisterForm.init();
+    });
+  </script>
+</body>
+</html>
