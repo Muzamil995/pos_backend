@@ -1,49 +1,92 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { poolPromise } = require('../models/db'); // MySQL pool
+const { poolPromise } = require('../models/db');
 
-// Register new user (POS App - Flutter)
+// ================= REGISTER =================
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validate input
+    // ---- Validation ----
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'All fields required' });
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    // Check password strength (at least 6 characters)
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
     const pool = await poolPromise;
 
-    // Check if user already exists
-    const [rows] = await pool.query('SELECT * FROM Users WHERE Email = ?', [email]);
+    // ---- Check existing user ----
+    const [existingUser] = await pool.query(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
 
-    if (rows.length > 0) {
+    if (existingUser.length > 0) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // Hash password
+    // ---- Hash Password ----
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user
-    await pool.query(
-      'INSERT INTO Users (Name, Email, Password) VALUES (?, ?, ?)',
-      [name, email, hashedPassword]
+    // ---- Insert User ----
+    const [result] = await pool.query(
+      'INSERT INTO users (name, email, password, role, status, createdOn) VALUES (?, ?, ?, ?, ?, NOW())',
+      [name, email, hashedPassword, 'owner', 1]
     );
 
-    res.status(201).json({ 
-      success: true, 
-      message: 'User registered successfully!' 
+    const userId = result.insertId;
+
+    // ---- Assign Basic Plan (id = 1) ----
+    const [planRows] = await pool.query(
+      'SELECT durationDays FROM plans WHERE id = 1 AND status = 1'
+    );
+
+    if (planRows.length === 0) {
+      return res.status(500).json({ error: 'Basic plan not found' });
+    }
+
+    const duration = planRows[0].durationDays;
+
+    await pool.query(
+      `INSERT INTO subscriptions 
+      (userId, planId, status, startDate, endDate, createdAt, paymentProof)
+      VALUES (?, 1, 'Active', CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), NOW(), NULL)`,
+      [userId, duration]
+    );
+
+    // ---- Generate JWT ----
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ error: 'JWT secret missing in server config' });
+    }
+
+    const token = jwt.sign(
+      {
+        userId,
+        email,
+        role: 'owner'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      token,
+      user: {
+        id: userId,
+        name,
+        email,
+        role: 'owner'
+      }
     });
 
   } catch (err) {
@@ -52,20 +95,21 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login user (POS App - Flutter)
+// ================= LOGIN =================
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
     const pool = await poolPromise;
 
-    // Find user
-    const [rows] = await pool.query('SELECT * FROM Users WHERE Email = ?', [email]);
+    const [rows] = await pool.query(
+      'SELECT * FROM users WHERE email = ?',
+      [email]
+    );
 
     if (rows.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -73,25 +117,35 @@ exports.login = async (req, res) => {
 
     const user = rows[0];
 
-    // Check password
-    const isValidPassword = await bcrypt.compare(password, user.Password);
+    const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Verify JWT_SECRET exists
     if (!process.env.JWT_SECRET) {
-      console.error('JWT_SECRET not defined in environment');
-      return res.status(500).json({ error: 'Server configuration error' });
+      return res.status(500).json({ error: 'JWT secret missing' });
     }
 
-    // Generate JWT token
+    // ---- Check Active Subscription ----
+    const [subRows] = await pool.query(
+      `SELECT s.*, p.name AS planName 
+       FROM subscriptions s
+       JOIN plans p ON s.planId = p.id
+       WHERE s.userId = ? 
+       AND s.status = 'Active'
+       AND s.endDate >= CURDATE()
+       LIMIT 1`,
+      [user.id]
+    );
+
+    const subscription = subRows.length > 0 ? subRows[0] : null;
+
     const token = jwt.sign(
-      { 
-        userId: user.Id, 
-        email: user.Email,
-        name: user.Name 
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
@@ -102,10 +156,12 @@ exports.login = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: user.Id,
-        name: user.Name,
-        email: user.Email
-      }
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
+      subscription
     });
 
   } catch (err) {

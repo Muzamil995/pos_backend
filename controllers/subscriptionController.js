@@ -1,72 +1,165 @@
-const { poolPromise } = require('../models/db'); // MySQL pool
+const { poolPromise } = require('../models/db');
 
-// Get all users with subscriptions
-exports.getAllUsers = async (req, res) => {
+// ================= GET CURRENT SUBSCRIPTION =================
+exports.getMySubscription = async (req, res) => {
   try {
     const pool = await poolPromise;
 
-    const [rows] = await pool.query(`
-      SELECT 
-        u.Id, 
-        u.Name, 
-        u.Email, 
-        u.CreatedAt,
-        s.PlanName,
-        s.Status,
-        s.StartDate,
-        s.EndDate
-      FROM Users u
-      LEFT JOIN Subscriptions s ON u.Id = s.UserId
-      ORDER BY u.CreatedAt DESC
-    `);
+    const [rows] = await pool.query(
+      `SELECT s.*, p.name AS planName, p.price, p.maxProducts, p.maxUsers
+       FROM subscriptions s
+       JOIN plans p ON s.planId = p.id
+       WHERE s.userId = ?
+       ORDER BY s.id DESC
+       LIMIT 1`,
+      [req.user.userId]
+    );
 
-    res.json({ success: true, users: rows });
+    if (rows.length === 0) {
+      return res.json({ subscription: null });
+    }
+
+    res.json(rows[0]);
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error('Get subscription error:', err);
+    res.status(500).json({ error: 'Failed to fetch subscription' });
   }
 };
 
-// Create subscription
-exports.createSubscription = async (req, res) => {
+// ================= REQUEST PLAN CHANGE =================
+exports.requestPlanUpgrade = async (req, res) => {
   try {
-    const { userId, planName, startDate, endDate } = req.body;
+    const { planId, paymentProof } = req.body;
 
-    if (!userId || !planName || !startDate || !endDate) {
-      return res.status(400).json({ error: 'All fields required' });
+    if (!planId) {
+      return res.status(400).json({ error: 'Plan ID required' });
     }
 
     const pool = await poolPromise;
 
-    await pool.query(
-      `INSERT INTO Subscriptions (UserId, PlanName, Status, StartDate, EndDate)
-       VALUES (?, ?, 'Active', ?, ?)`,
-      [userId, planName, startDate, endDate]
+    // Check plan exists
+    const [planRows] = await pool.query(
+      'SELECT durationDays FROM plans WHERE id = ? AND status = 1',
+      [planId]
     );
 
-    res.status(201).json({ success: true, message: 'Subscription created successfully' });
+    if (planRows.length === 0) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+
+    const duration = planRows[0].durationDays;
+
+    // Insert as Pending (admin approval ready)
+    await pool.query(
+      `INSERT INTO subscriptions
+       (userId, planId, status, startDate, endDate, createdAt, paymentProof)
+       VALUES (?, ?, 'Pending', CURDATE(),
+               DATE_ADD(CURDATE(), INTERVAL ? DAY),
+               NOW(), ?)`,
+      [
+        req.user.userId,
+        planId,
+        duration,
+        paymentProof || null
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: 'Plan upgrade request submitted'
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error('Upgrade request error:', err);
+    res.status(500).json({ error: 'Failed to request upgrade' });
   }
 };
 
-// Get subscription by user ID
-exports.getUserSubscription = async (req, res) => {
+// ================= RENEW SUBSCRIPTION =================
+exports.renewSubscription = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { paymentProof } = req.body;
+
+    const pool = await poolPromise;
+
+    // Get latest subscription
+    const [rows] = await pool.query(
+      `SELECT * FROM subscriptions
+       WHERE userId = ?
+       ORDER BY id DESC
+       LIMIT 1`,
+      [req.user.userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No subscription found' });
+    }
+
+    const currentSub = rows[0];
+
+    // Get plan duration
+    const [planRows] = await pool.query(
+      'SELECT durationDays FROM plans WHERE id = ?',
+      [currentSub.planId]
+    );
+
+    const duration = planRows[0].durationDays;
+
+    await pool.query(
+      `INSERT INTO subscriptions
+       (userId, planId, status, startDate, endDate, createdAt, paymentProof)
+       VALUES (?, ?, 'Pending', CURDATE(),
+               DATE_ADD(CURDATE(), INTERVAL ? DAY),
+               NOW(), ?)`,
+      [
+        req.user.userId,
+        currentSub.planId,
+        duration,
+        paymentProof || null
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: 'Renewal request submitted'
+    });
+
+  } catch (err) {
+    console.error('Renew error:', err);
+    res.status(500).json({ error: 'Failed to renew subscription' });
+  }
+};
+
+// ================= CHECK SUBSCRIPTION STATUS =================
+exports.checkSubscriptionStatus = async (req, res) => {
+  try {
     const pool = await poolPromise;
 
     const [rows] = await pool.query(
-      `SELECT * FROM Subscriptions 
-       WHERE UserId = ? 
-       ORDER BY CreatedAt DESC`,
-      [userId]
+      `SELECT * FROM subscriptions
+       WHERE userId = ?
+       AND status = 'Active'
+       AND endDate >= CURDATE()
+       ORDER BY id DESC
+       LIMIT 1`,
+      [req.user.userId]
     );
 
-    res.json({ success: true, subscription: rows[0] || null });
+    if (rows.length === 0) {
+      return res.json({
+        active: false,
+        message: 'Subscription expired or not active'
+      });
+    }
+
+    res.json({
+      active: true,
+      subscription: rows[0]
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error('Subscription check error:', err);
+    res.status(500).json({ error: 'Failed to check subscription' });
   }
 };

@@ -1,16 +1,44 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
 
+// ⚠️ dotenv must ONLY be loaded in index.js
+// Do NOT require('dotenv') here
+
+const {
+  DB_HOST = 'localhost',
+  DB_USER = 'root',
+  DB_PASSWORD = '',
+  DB_NAME = 'pos_db'
+} = process.env;
+
+// Validate required variables
+if (!DB_NAME) {
+  throw new Error('❌ DB_NAME is not defined in environment variables');
+}
+
+// Create MySQL Pool
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'pos_db',
+  host: DB_HOST,
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  timezone: '+05:00', // 🇵🇰 Pakistan Standard Time
+  charset: 'utf8mb4'
 });
 
-const poolPromise = pool;
+// Test connection once on startup
+async function testConnection() {
+  try {
+    const connection = await pool.getConnection();
+    connection.release();
+  } catch (err) {
+    console.error('❌ Database connection failed:', err.message);
+    process.exit(1); // Stop server if DB fails
+  }
+}
 
-module.exports = { poolPromise };
+testConnection();
+
+module.exports = pool;
