@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { poolPromise } = require('../models/db');
+const pool = require('../models/db');
 
 // ================= REGISTER =================
 exports.register = async (req, res) => {
@@ -21,7 +21,6 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const pool = await poolPromise;
 
     // ---- Check existing user ----
     const [existingUser] = await pool.query(
@@ -104,7 +103,6 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    const pool = await poolPromise;
 
     const [rows] = await pool.query(
       'SELECT * FROM users WHERE email = ?',
@@ -116,6 +114,10 @@ exports.login = async (req, res) => {
     }
 
     const user = rows[0];
+
+    console.log("Entered password:", password);
+    console.log("DB password:", user.password);
+
 
     const isValidPassword = await bcrypt.compare(password, user.password);
 

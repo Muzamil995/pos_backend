@@ -1,9 +1,9 @@
-const { poolPromise } = require('../models/db');
+const pool = require('../models/db');
 
 // GET ALL
 exports.getCategories = async (req, res) => {
   try {
-    const pool = await poolPromise;
+    
 
     const [rows] = await pool.query(
       'SELECT * FROM categories WHERE userId = ?',
@@ -21,17 +21,23 @@ exports.getCategories = async (req, res) => {
 exports.createCategory = async (req, res) => {
   try {
     const { name, status } = req.body;
-    const pool = await poolPromise;
 
     await pool.query(
       'INSERT INTO categories (userId, name, status, createdOn) VALUES (?, ?, ?, NOW())',
       [req.user.userId, name, status]
     );
 
-    res.json({ success: true });
+    return res.json({ success: true });
 
   } catch (err) {
-    res.status(500).json({ error: 'Failed to create category' });
+
+    // 👇 HANDLE DUPLICATE GRACEFULLY
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.json({ success: true, message: "Already exists" });
+    }
+
+   
+    return res.status(500).json({ error: err.message });
   }
 };
 
@@ -40,7 +46,7 @@ exports.updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, status } = req.body;
-    const pool = await poolPromise;
+    
 
     await pool.query(
       'UPDATE categories SET name=?, status=? WHERE id=? AND userId=?',
@@ -58,7 +64,7 @@ exports.updateCategory = async (req, res) => {
 exports.deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await poolPromise;
+    
 
     await pool.query(
       'DELETE FROM categories WHERE id=? AND userId=?',
