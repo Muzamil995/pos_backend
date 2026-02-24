@@ -1,49 +1,44 @@
-const { poolPromise } = require('../models/db');
-const bcrypt = require('bcryptjs');
+const pool = require("../models/db");
+const path = require("path");
+const fs = require("fs");
 
 // ================= GET ALL EMPLOYEES =================
 exports.getEmployees = async (req, res) => {
   try {
-    const pool = await poolPromise;
-
     const [rows] = await pool.query(
-      'SELECT * FROM employees WHERE userId = ? ORDER BY id DESC',
-      [req.user.userId]
+      "SELECT * FROM employees WHERE userId = ? ORDER BY id DESC",
+      [req.user.userId],
     );
 
-    res.json(rows);
-
+    return res.json(rows);
   } catch (err) {
-    console.error('Get employees error:', err);
-    res.status(500).json({ error: 'Failed to fetch employees' });
+    console.error("Get employees error:", err);
+    return res.status(500).json({ error: "Failed to fetch employees" });
   }
 };
-
 
 // ================= GET SINGLE EMPLOYEE =================
 exports.getEmployeeById = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await poolPromise;
 
     const [rows] = await pool.query(
-      'SELECT * FROM employees WHERE id = ? AND userId = ?',
-      [id, req.user.userId]
+      "SELECT * FROM employees WHERE id = ? AND userId = ?",
+      [id, req.user.userId],
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Employee not found' });
+      return res.status(404).json({ error: "Employee not found" });
     }
 
-    res.json(rows[0]);
-
+    return res.json(rows[0]);
   } catch (err) {
-    console.error('Get employee error:', err);
-    res.status(500).json({ error: 'Failed to fetch employee' });
+    console.error("Get employee error:", err);
+    return res.status(500).json({ error: "Failed to fetch employee" });
   }
 };
 
-
+// ================= CREATE EMPLOYEE =================
 // ================= CREATE EMPLOYEE =================
 exports.createEmployee = async (req, res) => {
   try {
@@ -53,112 +48,279 @@ exports.createEmployee = async (req, res) => {
       email,
       contactNumber,
       empCode,
+      dateOfBirth,
+      gender,
+      nationality,
+      joiningDate,
+      shift,
+      department,
       designation,
-      password,
-      status
+      bloodGroup,
+      about,
+      address,
+      country,
+      state,
+      city,
+      zipcode,
+      emergencyContact1,
+      emergencyRelation1,
+      emergencyName1,
+      emergencyContact2,
+      emergencyRelation2,
+      emergencyName2,
+      bankName,
+      accountNumber,
+      ifsc,
+      branch,
+      status = 1,
     } = req.body;
 
-    const pool = await poolPromise;
-
-    // Prevent duplicate empCode per user
-    const [existing] = await pool.query(
-      'SELECT id FROM employees WHERE userId = ? AND empCode = ?',
-      [req.user.userId, empCode]
-    );
-
-    if (existing.length > 0) {
-      return res.status(400).json({ error: 'Employee code already exists' });
+    if (!firstName || !lastName || !empCode) {
+      return res.status(400).json({
+        error: "First name, Last name and Employee Code are required",
+      });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Check duplicate empCode
+    const [codeExists] = await pool.query(
+      "SELECT id FROM employees WHERE userId = ? AND empCode = ?",
+      [req.user.userId, empCode],
+    );
 
-    await pool.query(
-      `INSERT INTO employees
-      (userId, firstName, lastName, email, contactNumber, empCode, designation, password, status, createdOn)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    if (codeExists.length > 0) {
+      return res.status(400).json({ error: "Employee code already exists" });
+    }
+
+    // Check duplicate email
+    if (email) {
+      const [emailExists] = await pool.query(
+        "SELECT id FROM employees WHERE userId = ? AND email = ?",
+        [req.user.userId, email],
+      );
+
+      if (emailExists.length > 0) {
+        return res.status(400).json({ error: "Employee email already exists" });
+      }
+    }
+
+    let profileImagePath = null;
+
+    if (req.file) {
+      profileImagePath = `/uploads/${req.user.userId}/employees/${req.file.filename}`;
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO employees (
+        userId,
+        firstName, lastName, email, contactNumber, empCode,
+        dateOfBirth, gender, nationality, joiningDate,
+        shift, department, designation, bloodGroup,
+        about, address, country, state, city, zipcode,
+        emergencyContact1, emergencyRelation1, emergencyName1,
+        emergencyContact2, emergencyRelation2, emergencyName2,
+        bankName, accountNumber, ifsc, branch,
+        profileImagePath, status, createdOn
+      )
+      VALUES (
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()
+      )`,
       [
         req.user.userId,
         firstName,
         lastName,
-        email,
-        contactNumber,
+        email || null,
+        contactNumber || null,
         empCode,
-        designation,
-        hashedPassword,
-        status
-      ]
+        dateOfBirth || null,
+        gender || null,
+        nationality || null,
+        joiningDate || null,
+        shift || null,
+        department || null,
+        designation || null,
+        bloodGroup || null,
+        about || null,
+        address || null,
+        country || null,
+        state || null,
+        city || null,
+        zipcode || null,
+        emergencyContact1 || null,
+        emergencyRelation1 || null,
+        emergencyName1 || null,
+        emergencyContact2 || null,
+        emergencyRelation2 || null,
+        emergencyName2 || null,
+        bankName || null,
+        accountNumber || null,
+        ifsc || null,
+        branch || null,
+        profileImagePath, // ✅ placeholder 31
+        status ?? 1, // ✅ placeholder 32
+      ],
     );
 
-    res.json({ success: true, message: 'Employee created successfully' });
-
+    return res.json({
+      success: true,
+      id: result.insertId,
+      profileImagePath,
+      message: "Employee created successfully",
+    });
   } catch (err) {
-    console.error('Create employee error:', err);
-    res.status(500).json({ error: 'Failed to create employee' });
+    console.error("Create employee error:", err);
+    return res.status(500).json({ error: "Failed to create employee" });
   }
 };
-
 
 // ================= UPDATE EMPLOYEE =================
 exports.updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const [existingEmployee] = await pool.query(
+      "SELECT profileImagePath FROM employees WHERE id = ? AND userId = ?",
+      [id, req.user.userId],
+    );
+
+    if (existingEmployee.length === 0) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+
+    let profileImagePath = existingEmployee[0].profileImagePath;
+
+    if (req.file) {
+      if (profileImagePath) {
+        const oldImageFullPath = path.join(__dirname, "..", profileImagePath);
+        if (fs.existsSync(oldImageFullPath)) {
+          fs.unlinkSync(oldImageFullPath);
+        }
+      }
+
+      profileImagePath = `/uploads/${req.user.userId}/employees/${req.file.filename}`;
+    }
+
     const {
       firstName,
       lastName,
       email,
       contactNumber,
+      dateOfBirth,
+      gender,
+      nationality,
+      joiningDate,
+      shift,
+      department,
       designation,
-      status
+      bloodGroup,
+      about,
+      address,
+      country,
+      state,
+      city,
+      zipcode,
+      emergencyContact1,
+      emergencyRelation1,
+      emergencyName1,
+      emergencyContact2,
+      emergencyRelation2,
+      emergencyName2,
+      bankName,
+      accountNumber,
+      ifsc,
+      branch,
+      status,
     } = req.body;
-
-    const pool = await poolPromise;
 
     await pool.query(
       `UPDATE employees SET
-      firstName = ?,
-      lastName = ?,
-      email = ?,
-      contactNumber = ?,
-      designation = ?,
-      status = ?
-      WHERE id = ? AND userId = ?`,
+        firstName = ?, lastName = ?, email = ?, contactNumber = ?,
+        dateOfBirth = ?, gender = ?, nationality = ?, joiningDate = ?,
+        shift = ?, department = ?, designation = ?, bloodGroup = ?,
+        about = ?, address = ?, country = ?, state = ?, city = ?, zipcode = ?,
+        emergencyContact1 = ?, emergencyRelation1 = ?, emergencyName1 = ?,
+        emergencyContact2 = ?, emergencyRelation2 = ?, emergencyName2 = ?,
+        bankName = ?, accountNumber = ?, ifsc = ?, branch = ?,
+        profileImagePath = ?, status = ?
+       WHERE id = ? AND userId = ?`,
       [
         firstName,
         lastName,
-        email,
-        contactNumber,
-        designation,
-        status,
+        email || null,
+        contactNumber || null,
+        dateOfBirth || null,
+        gender || null,
+        nationality || null,
+        joiningDate || null,
+        shift || null,
+        department || null,
+        designation || null,
+        bloodGroup || null,
+        about || null,
+        address || null,
+        country || null,
+        state || null,
+        city || null,
+        zipcode || null,
+        emergencyContact1 || null,
+        emergencyRelation1 || null,
+        emergencyName1 || null,
+        emergencyContact2 || null,
+        emergencyRelation2 || null,
+        emergencyName2 || null,
+        bankName || null,
+        accountNumber || null,
+        ifsc || null,
+        branch || null,
+        profileImagePath,
+        status ?? 1,
         id,
-        req.user.userId
-      ]
+        req.user.userId,
+      ],
     );
 
-    res.json({ success: true, message: 'Employee updated successfully' });
-
+    return res.json({
+      success: true,
+      profileImagePath,
+      message: "Employee updated successfully",
+    });
   } catch (err) {
-    console.error('Update employee error:', err);
-    res.status(500).json({ error: 'Failed to update employee' });
+    console.error("Update employee error:", err);
+    return res.status(500).json({ error: "Failed to update employee" });
   }
 };
-
 
 // ================= DELETE EMPLOYEE =================
 exports.deleteEmployee = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await poolPromise;
 
-    await pool.query(
-      'DELETE FROM employees WHERE id = ? AND userId = ?',
-      [id, req.user.userId]
+    const [rows] = await pool.query(
+      "SELECT profileImagePath FROM employees WHERE id = ? AND userId = ?",
+      [id, req.user.userId],
     );
 
-    res.json({ success: true, message: 'Employee deleted successfully' });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
 
+    if (rows[0].profileImagePath) {
+      const fullPath = path.join(__dirname, "..", rows[0].profileImagePath);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    }
+
+    await pool.query("DELETE FROM employees WHERE id = ? AND userId = ?", [
+      id,
+      req.user.userId,
+    ]);
+
+    return res.json({
+      success: true,
+      message: "Employee deleted successfully",
+    });
   } catch (err) {
-    console.error('Delete employee error:', err);
-    res.status(500).json({ error: 'Failed to delete employee' });
+    console.error("Delete employee error:", err);
+    return res.status(500).json({ error: "Failed to delete employee" });
   }
 };

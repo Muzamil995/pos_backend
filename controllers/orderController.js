@@ -1,55 +1,52 @@
-const { poolPromise } = require('../models/db');
+const pool = require("../models/db");
 
-// ================= GET ALL ORDERS =================
+// ========================================
+// GET ALL ORDERS
+// ========================================
 exports.getOrders = async (req, res) => {
   try {
-    const pool = await poolPromise;
-
     const [rows] = await pool.query(
-      'SELECT * FROM orders WHERE userId = ? ORDER BY id DESC',
-      [req.user.userId]
+      "SELECT * FROM orders WHERE userId = ? ORDER BY id DESC",
+      [req.user.userId],
     );
 
-    res.json(rows);
-
+    return res.json(rows);
   } catch (err) {
-    console.error('Get orders error:', err);
-    res.status(500).json({ error: 'Failed to fetch orders' });
+    console.error("GET ORDERS ERROR:", err);
+    return res.status(500).json({ error: "Failed to fetch orders" });
   }
 };
 
-
-// ================= GET SINGLE ORDER =================
+// ========================================
+// GET SINGLE ORDER
+// ========================================
 exports.getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await poolPromise;
 
     const [rows] = await pool.query(
-      'SELECT * FROM orders WHERE id = ? AND userId = ?',
-      [id, req.user.userId]
+      "SELECT * FROM orders WHERE id = ? AND userId = ?",
+      [id, req.user.userId],
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({
+        error: "Order not found or unauthorized",
+      });
     }
 
-    res.json(rows[0]);
-
+    return res.json(rows[0]);
   } catch (err) {
-    console.error('Get order error:', err);
-    res.status(500).json({ error: 'Failed to fetch order' });
+    console.error("GET ORDER ERROR:", err);
+    return res.status(500).json({ error: "Failed to fetch order" });
   }
 };
 
-
-// ================= CREATE ORDER =================
+// ========================================
+// CREATE ORDER (Category Style)
+// ========================================
 exports.createOrder = async (req, res) => {
-  const connection = await (await poolPromise).getConnection();
-
   try {
-    await connection.beginTransaction();
-
     const {
       orderNumber,
       customerId,
@@ -64,19 +61,19 @@ exports.createOrder = async (req, res) => {
       cashReceived,
       changeAmount,
       paymentMethod,
-      status
+      status,
     } = req.body;
 
-    // Validate
     if (!orderNumber || !items || !totalAmount) {
-      throw new Error('Missing required fields');
+      return res.status(400).json({
+        error: "Missing required fields",
+      });
     }
 
-    // Convert items array to JSON string
     const itemsJson = JSON.stringify(items);
 
-    // Insert Order
-    const [result] = await connection.query(
+    // 1️⃣ Insert Order
+    const [result] = await pool.query(
       `INSERT INTO orders
       (userId, orderNumber, customerId, customerName, items,
        subtotal, shipping, tax, discount, roundoff, totalAmount,
@@ -97,81 +94,139 @@ exports.createOrder = async (req, res) => {
         cashReceived || 0,
         changeAmount || 0,
         paymentMethod,
-        status
-      ]
+        status,
+      ],
     );
 
-    // 🔥 Reduce stock
+    // 2️⃣ Reduce Stock
     for (const item of items) {
+      // 🔥 If no productId → it's a manual/service item
+      if (!item.productId) {
+        continue; // skip stock handling
+      }
 
-      const [productRows] = await connection.query(
-        'SELECT quantity FROM products WHERE id = ? AND userId = ?',
-        [item.productId, req.user.userId]
+      const [productRows] = await pool.query(
+        "SELECT quantity FROM products WHERE id = ? AND userId = ?",
+        [item.productId, req.user.userId],
       );
 
       if (productRows.length === 0) {
-        throw new Error(`Product not found`);
+        return res.status(400).json({ error: "Product not found" });
       }
 
-      if (productRows[0].quantity < item.quantity) {
-        throw new Error(`Insufficient stock for ${item.productName}`);
-      }
-
-      await connection.query(
+      await pool.query(
         `UPDATE products
          SET quantity = quantity - ?
          WHERE id = ? AND userId = ?`,
-        [
-          item.quantity,
-          item.productId,
-          req.user.userId
-        ]
+        [item.quantity, item.productId, req.user.userId],
       );
     }
 
-    // 🔥 Update Active Shift
-    await connection.query(
+    // 3️⃣ Update Active Shift
+    await pool.query(
       `UPDATE shifts
        SET totalSales = totalSales + ?, 
            totalOrders = totalOrders + 1
        WHERE userId = ? AND status = 'active'`,
-      [
-        totalAmount,
-        req.user.userId
-      ]
+      [totalAmount, req.user.userId],
     );
 
-    await connection.commit();
-
-    res.json({ success: true, message: 'Order created successfully' });
-
+    return res.json({
+      success: true,
+      id: result.insertId,
+      message: "Order created successfully",
+    });
   } catch (err) {
-    await connection.rollback();
-    console.error('Create order error:', err);
-    res.status(500).json({ error: err.message });
-  } finally {
-    connection.release();
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.json({
+        success: true,
+        message: "Order already exists",
+      });
+    }
+
+    console.error("CREATE ORDER ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 };
 
-
-// ================= DELETE ORDER =================
-exports.deleteOrder = async (req, res) => {
-  const connection = await (await poolPromise).getConnection();
-
+// ========================================
+// UPDATE ORDER
+// ========================================
+exports.updateOrder = async (req, res) => {
   try {
-    await connection.beginTransaction();
-
     const { id } = req.params;
 
-    // Get order
-    const [rows] = await connection.query(
-      'SELECT * FROM orders WHERE id = ? AND userId = ?',
-      [id, req.user.userId]
+    const {
+      customerId,
+      customerName,
+      items,
+      subtotal,
+      shipping,
+      tax,
+      discount,
+      roundoff,
+      totalAmount,
+      cashReceived,
+      changeAmount,
+      paymentMethod,
+      status,
+    } = req.body;
+
+    const itemsJson = JSON.stringify(items);
+
+    const [result] = await pool.query(
+      `UPDATE orders SET
+       customerId = ?, customerName = ?, items = ?,
+       subtotal = ?, shipping = ?, tax = ?, discount = ?,
+       roundoff = ?, totalAmount = ?, cashReceived = ?,
+       changeAmount = ?, paymentMethod = ?, status = ?
+       WHERE id = ? AND userId = ?`,
+      [
+        customerId || null,
+        customerName || null,
+        itemsJson,
+        subtotal,
+        shipping,
+        tax,
+        discount,
+        roundoff,
+        totalAmount,
+        cashReceived,
+        changeAmount,
+        paymentMethod,
+        status,
+        id,
+        req.user.userId,
+      ],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "Order not found or unauthorized",
+      });
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("UPDATE ORDER ERROR:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// ========================================
+// DELETE ORDER
+// ========================================
+exports.deleteOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await pool.query(
+      "SELECT * FROM orders WHERE id = ? AND userId = ?",
+      [id, req.user.userId],
     );
 
     if (rows.length === 0) {
-      throw new Error('Order not found');
+      return res.status(404).json({ error: "Order not found" });
     }
 
     const order = rows[0];
@@ -179,32 +234,22 @@ exports.deleteOrder = async (req, res) => {
 
     // Restore stock
     for (const item of items) {
-      await connection.query(
+      await pool.query(
         `UPDATE products
          SET quantity = quantity + ?
          WHERE id = ? AND userId = ?`,
-        [
-          item.quantity,
-          item.productId,
-          req.user.userId
-        ]
+        [item.quantity, item.productId, req.user.userId],
       );
     }
 
-    await connection.query(
-      'DELETE FROM orders WHERE id = ? AND userId = ?',
-      [id, req.user.userId]
-    );
+    await pool.query("DELETE FROM orders WHERE id = ? AND userId = ?", [
+      id,
+      req.user.userId,
+    ]);
 
-    await connection.commit();
-
-    res.json({ success: true, message: 'Order deleted successfully' });
-
+    return res.json({ success: true });
   } catch (err) {
-    await connection.rollback();
-    console.error('Delete order error:', err);
-    res.status(500).json({ error: err.message });
-  } finally {
-    connection.release();
+    console.error("DELETE ORDER ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 };

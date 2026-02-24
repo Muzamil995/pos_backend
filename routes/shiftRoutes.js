@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/shiftController');
 const { verifyToken } = require('../middleware/authMiddleware');
+const { checkSubscriptionAccess } = require('../middleware/subscriptionMiddleware');
+
+router.use(verifyToken);
+router.use(checkSubscriptionAccess);
 
 router.get('/active', verifyToken, controller.getActiveShift);
 router.post('/open', verifyToken, controller.openShift);

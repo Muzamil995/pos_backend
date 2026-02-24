@@ -1,59 +1,58 @@
-const { poolPromise } = require('../models/db');
+const pool = require("../models/db");
 
-// ================= GET ALL PURCHASES =================
+// ========================================
+// GET ALL PURCHASES
+// ========================================
 exports.getPurchases = async (req, res) => {
   try {
-    const pool = await poolPromise;
-
     const [rows] = await pool.query(
-      'SELECT * FROM purchases WHERE userId = ? ORDER BY id DESC',
+      "SELECT * FROM purchases WHERE userId = ? ORDER BY id DESC",
       [req.user.userId]
     );
 
-    res.json(rows);
-
+    return res.json(rows);
   } catch (err) {
-    console.error('Get purchases error:', err);
-    res.status(500).json({ error: 'Failed to fetch purchases' });
+    console.error("GET PURCHASES ERROR:", err);
+    return res.status(500).json({ error: "Failed to fetch purchases" });
   }
 };
 
-
-// ================= GET SINGLE PURCHASE WITH ITEMS =================
+// ========================================
+// GET SINGLE PURCHASE WITH ITEMS
+// ========================================
 exports.getPurchaseById = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await poolPromise;
 
     const [purchaseRows] = await pool.query(
-      'SELECT * FROM purchases WHERE id = ? AND userId = ?',
+      "SELECT * FROM purchases WHERE id = ? AND userId = ?",
       [id, req.user.userId]
     );
 
     if (purchaseRows.length === 0) {
-      return res.status(404).json({ error: 'Purchase not found' });
+      return res.status(404).json({ error: "Purchase not found" });
     }
 
     const [items] = await pool.query(
-      'SELECT * FROM purchase_items WHERE purchaseId = ?',
+      "SELECT * FROM purchase_items WHERE purchaseId = ?",
       [id]
     );
 
-    res.json({
+    return res.json({
       ...purchaseRows[0],
-      items
+      items,
     });
-
   } catch (err) {
-    console.error('Get purchase error:', err);
-    res.status(500).json({ error: 'Failed to fetch purchase' });
+    console.error("GET PURCHASE ERROR:", err);
+    return res.status(500).json({ error: "Failed to fetch purchase" });
   }
 };
 
-
-// ================= CREATE PURCHASE WITH ITEMS =================
+// ========================================
+// CREATE PURCHASE WITH ITEMS (TRANSACTION)
+// ========================================
 exports.createPurchase = async (req, res) => {
-  const connection = await (await poolPromise).getConnection();
+  const connection = await pool.getConnection(); // ✅ FIXED
 
   try {
     await connection.beginTransaction();
@@ -66,7 +65,7 @@ exports.createPurchase = async (req, res) => {
       paidAmount,
       dueAmount,
       status,
-      items
+      items,
     } = req.body;
 
     // Insert purchase
@@ -82,15 +81,15 @@ exports.createPurchase = async (req, res) => {
         totalAmount,
         paidAmount,
         dueAmount,
-        status
+        status,
       ]
     );
 
     const purchaseId = result.insertId;
 
-    // Insert purchase items + update stock
+    // Insert items + update stock
     for (const item of items) {
-
+      // Insert item
       await connection.query(
         `INSERT INTO purchase_items
         (purchaseId, productId, productName, quantity, purchasePrice, totalCost)
@@ -101,11 +100,11 @@ exports.createPurchase = async (req, res) => {
           item.productName,
           item.quantity,
           item.purchasePrice,
-          item.totalCost
+          item.totalCost,
         ]
       );
 
-      // Update product stock
+      // Update stock
       await connection.query(
         `UPDATE products
          SET quantity = quantity + ?
@@ -113,41 +112,45 @@ exports.createPurchase = async (req, res) => {
         [
           item.quantity,
           item.productId,
-          req.user.userId
+          req.user.userId,
         ]
       );
     }
 
     await connection.commit();
 
-    res.json({ success: true, message: 'Purchase created successfully' });
-
+    return res.json({
+      success: true,
+      id: purchaseId,
+      message: "Purchase created successfully",
+    });
   } catch (err) {
     await connection.rollback();
-    console.error('Create purchase error:', err);
-    res.status(500).json({ error: 'Failed to create purchase' });
+    console.error("CREATE PURCHASE ERROR:", err);
+    return res.status(500).json({ error: "Failed to create purchase" });
   } finally {
     connection.release();
   }
 };
 
-
-// ================= DELETE PURCHASE (ROLLBACK STOCK) =================
+// ========================================
+// DELETE PURCHASE (ROLLBACK STOCK)
+// ========================================
 exports.deletePurchase = async (req, res) => {
-  const connection = await (await poolPromise).getConnection();
+  const connection = await pool.getConnection(); // ✅ FIXED
 
   try {
     await connection.beginTransaction();
 
     const { id } = req.params;
 
-    // Get items
+    // Get purchase items
     const [items] = await connection.query(
-      'SELECT * FROM purchase_items WHERE purchaseId = ?',
+      "SELECT * FROM purchase_items WHERE purchaseId = ?",
       [id]
     );
 
-    // Reduce stock
+    // Rollback stock
     for (const item of items) {
       await connection.query(
         `UPDATE products
@@ -156,31 +159,40 @@ exports.deletePurchase = async (req, res) => {
         [
           item.quantity,
           item.productId,
-          req.user.userId
+          req.user.userId,
         ]
       );
     }
 
     // Delete items
     await connection.query(
-      'DELETE FROM purchase_items WHERE purchaseId = ?',
+      "DELETE FROM purchase_items WHERE purchaseId = ?",
       [id]
     );
 
     // Delete purchase
-    await connection.query(
-      'DELETE FROM purchases WHERE id = ? AND userId = ?',
+    const [result] = await connection.query(
+      "DELETE FROM purchases WHERE id = ? AND userId = ?",
       [id, req.user.userId]
     );
 
+    if (result.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        error: "Purchase not found or unauthorized",
+      });
+    }
+
     await connection.commit();
 
-    res.json({ success: true, message: 'Purchase deleted successfully' });
-
+    return res.json({
+      success: true,
+      message: "Purchase deleted successfully",
+    });
   } catch (err) {
     await connection.rollback();
-    console.error('Delete purchase error:', err);
-    res.status(500).json({ error: 'Failed to delete purchase' });
+    console.error("DELETE PURCHASE ERROR:", err);
+    return res.status(500).json({ error: "Failed to delete purchase" });
   } finally {
     connection.release();
   }

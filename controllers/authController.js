@@ -5,11 +5,16 @@ const pool = require('../models/db');
 // ================= REGISTER =================
 exports.register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, parentId, role } = req.body;
 
-    // ---- Validation ----
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !role) {
       return res.status(400).json({ error: 'All fields required' });
+    }
+
+    const allowedRoles = ['owner', 'admin', 'staff'];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ error: 'Invalid role provided' });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,8 +26,6 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-
-    // ---- Check existing user ----
     const [existingUser] = await pool.query(
       'SELECT id FROM users WHERE email = ?',
       [email]
@@ -32,45 +35,57 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // ---- Hash Password ----
+    // 🔥 Security Rules
+    if (parentId && role === 'owner') {
+      return res.status(400).json({ error: 'Sub-user cannot have owner role' });
+    }
+
+    if (!parentId && role !== 'owner') {
+      return res.status(400).json({ error: 'Only owner can register without parentId' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ---- Insert User ----
     const [result] = await pool.query(
-      'INSERT INTO users (name, email, password, role, status, createdOn) VALUES (?, ?, ?, ?, ?, NOW())',
-      [name, email, hashedPassword, 'owner', 1]
+      `INSERT INTO users 
+       (parentId, name, email, password, role, status, createdOn) 
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        parentId || null,
+        name,
+        email,
+        hashedPassword,
+        role,
+        1
+      ]
     );
 
     const userId = result.insertId;
 
-    // ---- Assign Basic Plan (id = 1) ----
-    const [planRows] = await pool.query(
-      'SELECT durationDays FROM plans WHERE id = 1 AND status = 1'
-    );
+    // 🔥 Assign subscription ONLY if OWNER
+    if (role === 'owner') {
+      const [planRows] = await pool.query(
+        'SELECT durationDays FROM plans WHERE id = 1 AND status = 1'
+      );
 
-    if (planRows.length === 0) {
-      return res.status(500).json({ error: 'Basic plan not found' });
-    }
+      if (planRows.length > 0) {
+        const duration = planRows[0].durationDays;
 
-    const duration = planRows[0].durationDays;
-
-    await pool.query(
-      `INSERT INTO subscriptions 
-      (userId, planId, status, startDate, endDate, createdAt, paymentProof)
-      VALUES (?, 1, 'Active', CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), NOW(), NULL)`,
-      [userId, duration]
-    );
-
-    // ---- Generate JWT ----
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({ error: 'JWT secret missing in server config' });
+        await pool.query(
+          `INSERT INTO subscriptions 
+          (userId, planId, status, startDate, endDate, createdAt, paymentProof)
+          VALUES (?, 1, 'Active', CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), NOW(), NULL)`,
+          [userId, duration]
+        );
+      }
     }
 
     const token = jwt.sign(
       {
         userId,
         email,
-        role: 'owner'
+        role,
+        parentId: parentId || null
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
@@ -82,9 +97,10 @@ exports.register = async (req, res) => {
       token,
       user: {
         id: userId,
+        parentId: parentId || null,
         name,
         email,
-        role: 'owner'
+        role
       }
     });
 
@@ -94,6 +110,7 @@ exports.register = async (req, res) => {
   }
 };
 
+
 // ================= LOGIN =================
 exports.login = async (req, res) => {
   try {
@@ -102,7 +119,6 @@ exports.login = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password required' });
     }
-
 
     const [rows] = await pool.query(
       'SELECT * FROM users WHERE email = ?',
@@ -115,10 +131,6 @@ exports.login = async (req, res) => {
 
     const user = rows[0];
 
-    console.log("Entered password:", password);
-    console.log("DB password:", user.password);
-
-
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
@@ -129,7 +141,12 @@ exports.login = async (req, res) => {
       return res.status(500).json({ error: 'JWT secret missing' });
     }
 
-    // ---- Check Active Subscription ----
+    // ==========================================
+    // 🔥 SUBSCRIPTION OWNER LOGIC
+    // ==========================================
+
+    const subscriptionUserId = user.parentId ? user.parentId : user.id;
+
     const [subRows] = await pool.query(
       `SELECT s.*, p.name AS planName 
        FROM subscriptions s
@@ -138,7 +155,7 @@ exports.login = async (req, res) => {
        AND s.status = 'Active'
        AND s.endDate >= CURDATE()
        LIMIT 1`,
-      [user.id]
+      [subscriptionUserId]
     );
 
     const subscription = subRows.length > 0 ? subRows[0] : null;
@@ -147,7 +164,8 @@ exports.login = async (req, res) => {
       {
         userId: user.id,
         email: user.email,
-        role: user.role
+        role: user.role,
+        parentId: user.parentId
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
@@ -159,6 +177,7 @@ exports.login = async (req, res) => {
       token,
       user: {
         id: user.id,
+        parentId: user.parentId,
         name: user.name,
         email: user.email,
         role: user.role

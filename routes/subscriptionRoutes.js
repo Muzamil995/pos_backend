@@ -1,11 +1,28 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const controller = require('../controllers/subscriptionController');
-const { verifyToken } = require('../middleware/authMiddleware');
+const controller = require("../controllers/subscriptionController");
+const { verifyToken } = require("../middleware/authMiddleware");
+const createUploader = require("../middleware/upload");
 
-router.get('/me', verifyToken, controller.getMySubscription);
-router.post('/upgrade', verifyToken, controller.requestPlanUpgrade);
-router.post('/renew', verifyToken, controller.renewSubscription);
-router.get('/status', verifyToken, controller.checkSubscriptionStatus);
+const uploadSubscription = createUploader("subscription");
+
+router.get("/plans", controller.getAllPlans);
+
+router.get("/me", verifyToken, controller.getMySubscription);
+router.get("/status", verifyToken, controller.checkSubscriptionStatus);
+
+router.post(
+  "/upgrade",
+  verifyToken,
+  uploadSubscription.single("paymentProof"),
+  controller.requestPlanUpgrade
+);
+
+router.post(
+  "/renew",
+  verifyToken,
+  uploadSubscription.single("paymentProof"),
+  controller.renewSubscription
+);
 
 module.exports = router;
