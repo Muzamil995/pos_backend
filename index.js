@@ -18,8 +18,6 @@ const settingsRoutes = require("./routes/settingsRoutes");
 const shiftRoutes = require("./routes/shiftRoutes");
 const barcodeRoutes = require("./routes/barcodeRoutes");
 const permissionRoutes = require("./routes/permissionRoutes");
-
-// 🔥 NEW SYNC ROUTE
 const syncRoutes = require("./routes/syncRoutes");
 
 const app = express();
@@ -50,8 +48,6 @@ app.use(`${API_PREFIX}/settings`, settingsRoutes);
 app.use(`${API_PREFIX}/shifts`, shiftRoutes);
 app.use(`${API_PREFIX}/barcodes`, barcodeRoutes);
 app.use(`${API_PREFIX}/permissions`, permissionRoutes);
-
-// 🔥 SYNC ROUTE REGISTERED
 app.use(`${API_PREFIX}/sync`, syncRoutes);
 
 // ================= HEALTH CHECK =================
@@ -63,7 +59,7 @@ app.get(`${API_PREFIX}/health`, async (req, res) => {
       database: "Connected",
       timezone: "Asia/Karachi",
       timestamp: new Date(),
-      version: "1.2.0", // 🔥 Updated version
+      version: "1.2.0",
     });
   } catch (err) {
     res.status(500).json({
@@ -83,7 +79,7 @@ app.get("/", (req, res) => {
       health: `${API_PREFIX}/health`,
       auth: `${API_PREFIX}/auth`,
       products: `${API_PREFIX}/products`,
-      sync: `${API_PREFIX}/sync/full`, // 🔥 Added
+      sync: `${API_PREFIX}/sync/full`,
       barcodes: `${API_PREFIX}/barcodes`,
       permissions: `${API_PREFIX}/permissions`,
     },
@@ -114,7 +110,6 @@ app.listen(PORT, "0.0.0.0", async () => {
     console.log("✅ Database connected");
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 API Base: http://localhost:${PORT}${API_PREFIX}`);
-    console.log(`🔄 Sync Endpoint: http://localhost:${PORT}${API_PREFIX}/sync/full`);
   } catch (err) {
     console.error("❌ Database connection failed:", err.message);
   }

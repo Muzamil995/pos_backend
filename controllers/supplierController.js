@@ -1,6 +1,7 @@
 const pool = require("../models/db");
 const path = require("path");
 const fs = require("fs");
+const { canUploadImages } = require("../utils/featureAccess");
 
 // ================= GET ALL SUPPLIERS =================
 exports.getSuppliers = async (req, res) => {
@@ -76,8 +77,15 @@ exports.createSupplier = async (req, res) => {
 
     let imagePath = null;
 
-    if (req.file) {
+    if (req.file && canUploadImages(req.subscription)) {
       imagePath = `/uploads/${req.user.userId}/suppliers/${req.file.filename}`;
+    } else if (req.file) {
+      // 🔥 Not allowed → delete uploaded file silently
+      const uploadedPath = req.file.path;
+
+      if (fs.existsSync(uploadedPath)) {
+        fs.unlinkSync(uploadedPath);
+      }
     }
 
     const [result] = await pool.query(
@@ -158,20 +166,28 @@ exports.updateSupplier = async (req, res) => {
     let imagePath = existingSupplier[0].imagePath;
 
     // If new image uploaded → replace old image
-    if (req.file) {
+    if (req.file && canUploadImages(req.subscription)) {
+
       // Delete old image if exists
       if (imagePath) {
-        const oldImageFullPath = path.join(
-          __dirname,
-          "..",
-          imagePath
-        );
+        const oldImageFullPath = path.join(__dirname, "..", imagePath);
         if (fs.existsSync(oldImageFullPath)) {
           fs.unlinkSync(oldImageFullPath);
         }
       }
 
       imagePath = `/uploads/${req.user.userId}/suppliers/${req.file.filename}`;
+
+    } else if (req.file) {
+
+      // 🔥 Not allowed → delete uploaded file silently
+      const uploadedPath = req.file.path;
+
+      if (fs.existsSync(uploadedPath)) {
+        fs.unlinkSync(uploadedPath);
+      }
+
+      // Keep existing imagePath unchanged
     }
 
     await pool.query(

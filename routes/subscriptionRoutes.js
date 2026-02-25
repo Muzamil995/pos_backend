@@ -25,4 +25,6 @@ router.post(
   controller.renewSubscription
 );
 
+router.get("/history", verifyToken, controller.getSubscriptionHistory);
+
 module.exports = router;

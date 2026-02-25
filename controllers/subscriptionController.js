@@ -4,13 +4,25 @@ const pool = require("../models/db");
 exports.getMySubscription = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT s.*, p.name AS planName, p.price, p.maxProducts, p.maxUsers
+      `SELECT 
+          s.*,
+          p.name AS planName,
+          p.price,
+          p.durationDays,
+          p.maxProducts,
+          p.maxCategories,
+          p.maxCustomers,
+          p.maxEmployees,
+          p.maxSuppliers,
+          p.maxUsers,
+          p.hasOnlineBackup,
+          p.hasFullBackupWithImages
        FROM subscriptions s
        JOIN plans p ON s.planId = p.id
        WHERE s.userId = ?
        ORDER BY s.id DESC
        LIMIT 1`,
-      [req.user.userId],
+      [req.user.userId]
     );
 
     if (rows.length === 0) {
@@ -23,6 +35,7 @@ exports.getMySubscription = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch subscription" });
   }
 };
+
 
 // ================= REQUEST PLAN CHANGE =================
 exports.requestPlanUpgrade = async (req, res) => {
@@ -139,16 +152,28 @@ exports.renewSubscription = async (req, res) => {
 // ================= CHECK SUBSCRIPTION STATUS =================
 exports.checkSubscriptionStatus = async (req, res) => {
   try {
-    // 🔥 Get latest subscription (regardless of status)
     const [rows] = await pool.query(
-      `SELECT * FROM subscriptions
-       WHERE userId = ?
-       ORDER BY endDate DESC
+      `SELECT 
+          s.*,
+          p.name AS planName,
+          p.price,
+          p.durationDays,
+          p.maxProducts,
+          p.maxCategories,
+          p.maxCustomers,
+          p.maxEmployees,
+          p.maxSuppliers,
+          p.maxUsers,
+          p.hasOnlineBackup,
+          p.hasFullBackupWithImages
+       FROM subscriptions s
+       JOIN plans p ON s.planId = p.id
+       WHERE s.userId = ?
+       ORDER BY s.endDate DESC
        LIMIT 1`,
-      [req.user.userId],
+      [req.user.userId]
     );
 
-    // ❌ No subscription found
     if (rows.length === 0) {
       return res.json({
         state: "Locked",
@@ -158,7 +183,6 @@ exports.checkSubscriptionStatus = async (req, res) => {
 
     const sub = rows[0];
 
-    // ❌ If subscription is still Pending (admin not approved)
     if (sub.status === "Pending") {
       return res.json({
         state: "Locked",
@@ -169,13 +193,11 @@ exports.checkSubscriptionStatus = async (req, res) => {
     const today = new Date();
     const endDate = new Date(sub.endDate);
 
-    // Remove time part for accurate day comparison
     today.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
 
     const diffDays = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
 
-    // ✅ Active
     if (today <= endDate) {
       return res.json({
         state: "Active",
@@ -183,7 +205,6 @@ exports.checkSubscriptionStatus = async (req, res) => {
       });
     }
 
-    // ⚠️ Grace Period (5 Days)
     const GRACE_DAYS = 5;
 
     if (diffDays > 0 && diffDays <= GRACE_DAYS) {
@@ -194,11 +215,11 @@ exports.checkSubscriptionStatus = async (req, res) => {
       });
     }
 
-    // ❌ Fully Locked
     return res.json({
       state: "Locked",
       message: "Subscription expired",
     });
+
   } catch (err) {
     console.error("Subscription status error:", err);
     res.status(500).json({
@@ -211,20 +232,68 @@ exports.checkSubscriptionStatus = async (req, res) => {
 exports.getAllPlans = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, name, price, durationDays, maxProducts, maxUsers
+      `SELECT 
+          id,
+          name,
+          price,
+          durationDays,
+          maxProducts,
+          maxCategories,
+          maxCustomers,
+          maxEmployees,
+          maxSuppliers,
+          maxUsers,
+          hasOnlineBackup,
+          hasFullBackupWithImages
        FROM plans
        WHERE status = 1
-       ORDER BY price ASC`,
+       ORDER BY price ASC`
     );
 
     res.json({
       success: true,
       plans: rows,
     });
+
   } catch (err) {
     console.error("Get plans error:", err);
     res.status(500).json({
       error: "Failed to fetch plans",
+    });
+  }
+};
+// ================= GET SUBSCRIPTION HISTORY =================
+exports.getSubscriptionHistory = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT 
+          s.*,
+          p.name AS planName,
+          p.price,
+          p.maxProducts,
+          p.maxCategories,
+          p.maxCustomers,
+          p.maxEmployees,
+          p.maxSuppliers,
+          p.maxUsers,
+          p.hasOnlineBackup,
+          p.hasFullBackupWithImages
+       FROM subscriptions s
+       JOIN plans p ON s.planId = p.id
+       WHERE s.userId = ?
+       ORDER BY s.id DESC`,
+      [req.user.userId]
+    );
+
+    res.json({
+      success: true,
+      history: rows,
+    });
+
+  } catch (err) {
+    console.error("Subscription history error:", err);
+    res.status(500).json({
+      error: "Failed to fetch subscription history",
     });
   }
 };

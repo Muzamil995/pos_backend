@@ -1,6 +1,7 @@
 const pool = require("../models/db");
 const path = require("path");
 const fs = require("fs");
+const { canUploadImages } = require("../utils/featureAccess");
 
 // ================= GET ALL PRODUCTS =================
 exports.getProducts = async (req, res) => {
@@ -67,10 +68,16 @@ exports.createProduct = async (req, res) => {
 
     let imagePath = null;
 
-    if (req.file) {
+    if (req.file && canUploadImages(req.subscription)) {
       imagePath = `/uploads/${req.user.userId}/products/${req.file.filename}`;
-    }
+    } else if (req.file) {
+      // 🔥 Not allowed → delete uploaded file silently
+      const uploadedPath = req.file.path;
 
+      if (fs.existsSync(uploadedPath)) {
+        fs.unlinkSync(uploadedPath);
+      }
+    }
     const [result] = await pool.query(
       `INSERT INTO products
       (userId, name, sku, category, brand, price, unit, quantity,
@@ -146,9 +153,9 @@ exports.updateProduct = async (req, res) => {
 
     let imagePath = existingProduct[0].imagePath;
 
-    // If new image uploaded → delete old image
-    if (req.file) {
+    if (req.file && canUploadImages(req.subscription)) {
 
+      // Delete old image if exists
       if (imagePath) {
         const oldImageFullPath = path.join(__dirname, "..", imagePath);
         if (fs.existsSync(oldImageFullPath)) {
@@ -157,6 +164,17 @@ exports.updateProduct = async (req, res) => {
       }
 
       imagePath = `/uploads/${req.user.userId}/products/${req.file.filename}`;
+
+    } else if (req.file) {
+
+      // 🔥 Not allowed → delete uploaded file silently
+      const uploadedPath = req.file.path;
+
+      if (fs.existsSync(uploadedPath)) {
+        fs.unlinkSync(uploadedPath);
+      }
+
+      // Keep existing imagePath unchanged
     }
 
     await pool.query(

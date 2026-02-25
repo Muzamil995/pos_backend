@@ -1,6 +1,7 @@
 const pool = require("../models/db");
 const path = require("path");
 const fs = require("fs");
+const { canUploadImages } = require("../utils/featureAccess");
 
 // ================= GET ALL EMPLOYEES =================
 exports.getEmployees = async (req, res) => {
@@ -105,8 +106,15 @@ exports.createEmployee = async (req, res) => {
 
     let profileImagePath = null;
 
-    if (req.file) {
+    if (req.file && canUploadImages(req.subscription)) {
       profileImagePath = `/uploads/${req.user.userId}/employees/${req.file.filename}`;
+    } else if (req.file) {
+      // 🔥 Silently delete uploaded image if not allowed
+      const uploadedPath = req.file.path;
+
+      if (fs.existsSync(uploadedPath)) {
+        fs.unlinkSync(uploadedPath);
+      }
     }
 
     const [result] = await pool.query(
@@ -188,7 +196,9 @@ exports.updateEmployee = async (req, res) => {
 
     let profileImagePath = existingEmployee[0].profileImagePath;
 
-    if (req.file) {
+    if (req.file && canUploadImages(req.subscription)) {
+
+      // Delete old image if exists
       if (profileImagePath) {
         const oldImageFullPath = path.join(__dirname, "..", profileImagePath);
         if (fs.existsSync(oldImageFullPath)) {
@@ -197,6 +207,17 @@ exports.updateEmployee = async (req, res) => {
       }
 
       profileImagePath = `/uploads/${req.user.userId}/employees/${req.file.filename}`;
+
+    } else if (req.file) {
+
+      // 🔥 Not allowed → delete uploaded file silently
+      const uploadedPath = req.file.path;
+
+      if (fs.existsSync(uploadedPath)) {
+        fs.unlinkSync(uploadedPath);
+      }
+
+      // Keep existing profileImagePath unchanged
     }
 
     const {
