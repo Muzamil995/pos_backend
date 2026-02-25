@@ -1,20 +1,54 @@
 // API Client Utility
 const APIClient = {
-  baseURL: 'http://localhost:3000',
+  baseURL: "http://localhost:3000", // Change to '' if deploying to the same domain
+
+  /**
+   * Helper to build standard headers with Auth Token
+   * @returns {object} headers
+   */
+  getHeaders: function () {
+    const headers = {
+      "Content-Type": "application/json",
+    };
+    const token = this.getToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    return headers;
+  },
+
+  /**
+   * Helper to handle responses and auto-logout on 401
+   * @param {Response} response
+   * @returns {Promise<any>}
+   */
+  handleResponse: async function (response) {
+    if (response.status === 401) {
+      // Token is invalid or expired -> Auto Logout
+      console.warn("Session expired or unauthorized. Redirecting to login...");
+      this.clearToken();
+      localStorage.removeItem("user");
+      window.location.replace("login.html");
+      throw new Error("Session expired");
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  },
 
   /**
    * GET request
    * @param {string} endpoint
    * @returns {Promise}
    */
-  get: function(endpoint) {
-    return fetch(`${this.baseURL}${endpoint}`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      });
+  get: function (endpoint) {
+    return fetch(`${this.baseURL}${endpoint}`, {
+      method: "GET",
+      headers: this.getHeaders(),
+    }).then((response) => this.handleResponse(response));
   },
 
   /**
@@ -23,20 +57,12 @@ const APIClient = {
    * @param {object} data
    * @returns {Promise}
    */
-  post: function(endpoint, data) {
+  post: function (endpoint, data) {
     return fetch(`${this.baseURL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      });
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    }).then((response) => this.handleResponse(response));
   },
 
   /**
@@ -45,20 +71,12 @@ const APIClient = {
    * @param {object} data
    * @returns {Promise}
    */
-  put: function(endpoint, data) {
+  put: function (endpoint, data) {
     return fetch(`${this.baseURL}${endpoint}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      });
+      method: "PUT",
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    }).then((response) => this.handleResponse(response));
   },
 
   /**
@@ -66,41 +84,36 @@ const APIClient = {
    * @param {string} endpoint
    * @returns {Promise}
    */
-  delete: function(endpoint) {
+  delete: function (endpoint) {
     return fetch(`${this.baseURL}${endpoint}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      });
+      method: "DELETE",
+      headers: this.getHeaders(),
+    }).then((response) => this.handleResponse(response));
   },
 
   /**
    * Set Authorization Token
    * @param {string} token
    */
-  setToken: function(token) {
-    localStorage.setItem('authToken', token);
+  setToken: function (token) {
+    localStorage.setItem("jwt_token", token);
   },
 
   /**
    * Get Authorization Token
    * @returns {string|null}
    */
-  getToken: function() {
-    return localStorage.getItem('authToken');
+  getToken: function () {
+    return localStorage.getItem("jwt_token");
   },
 
   /**
    * Clear Authorization Token
    */
-  clearToken: function() {
-    localStorage.removeItem('authToken');
-  }
+  clearToken: function () {
+    localStorage.removeItem("jwt_token");
+  },
 };
+
+// Make globally available if your app architecture expects it
+window.APIClient = APIClient;

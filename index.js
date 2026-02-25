@@ -19,6 +19,9 @@ const shiftRoutes = require("./routes/shiftRoutes");
 const barcodeRoutes = require("./routes/barcodeRoutes");
 const permissionRoutes = require("./routes/permissionRoutes");
 const syncRoutes = require("./routes/syncRoutes");
+const systemOwnersRoutes = require("./admin_routes/systemOwnersRoutes");
+const systemSubscriptionsRoutes = require("./admin_routes/systemSubscriptionsRoutes");
+const systemPlansRoutes = require("./admin_routes/systemPlansRoutes");
 
 const app = express();
 
@@ -26,6 +29,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/v1/system-owners", systemOwnersRoutes);
 
 // ================= STATIC FILES =================
 app.use(express.static(path.join(__dirname, "public")));
@@ -35,6 +39,9 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const API_PREFIX = "/api/v1";
 
 // ================= ROUTES =================
+app.use(`${API_PREFIX}/system-owners`, systemOwnersRoutes);
+app.use(`${API_PREFIX}/system-subscriptions`, systemSubscriptionsRoutes);
+app.use(`${API_PREFIX}/system-plans`, systemPlansRoutes);
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/subscriptions`, subscriptionRoutes);
 app.use(`${API_PREFIX}/categories`, categoryRoutes);

@@ -1,6 +1,6 @@
 // Subscriptions Page
 const SubscriptionsPage = {
-  render: function() {
+  render: function () {
     return `
       <section id="subscriptions" class="page-section">
         <div class="dashboard-header">
@@ -34,29 +34,46 @@ const SubscriptionsPage = {
     `;
   },
 
-  init: function() {
-    const mainContent = document.getElementById('main-content');
-    const section = document.createElement('div');
+  init: function () {
+    const mainContent = document.getElementById("main-content");
+    const section = document.createElement("div");
     section.innerHTML = this.render();
     mainContent.appendChild(section.firstElementChild);
+
+    // Trigger the fetch request immediately after rendering
+    this.load();
   },
 
-  load: function() {
-    APIClient.get('/api/subscription/users')
-      .then(data => {
-        this.render_table(data.users || []);
+  load: function () {
+    // Point to the correct API v1 endpoint
+    APIClient.get("/api/v1/system-subscriptions")
+      .then((response) => {
+        // Handle standard backend response { success: true, data: [...] } or direct array
+        let subs = response.data || response || [];
+
+        // Ensure it's an array (just in case the API returns a single object for the logged-in owner)
+        if (!Array.isArray(subs)) {
+          subs = [subs];
+        }
+
+        this.render_table(subs);
       })
-      .catch(err => {
-        console.error('Error loading subscriptions:', err);
-        this.showError('Failed to load subscriptions');
+      .catch((err) => {
+        console.error("Error loading subscriptions:", err);
+        this.showError(
+          "Failed to load subscriptions. Please check your connection.",
+        );
       });
   },
 
-  render_table: function(users) {
-    const tbody = document.getElementById('subscriptionsBody');
-    tbody.innerHTML = '';
+  render_table: function (subscriptions) {
+    const tbody = document.getElementById("subscriptionsBody");
+    tbody.innerHTML = "";
 
-    if (users.length === 0) {
+    if (
+      subscriptions.length === 0 ||
+      (subscriptions.length === 1 && Object.keys(subscriptions[0]).length === 0)
+    ) {
       tbody.innerHTML = `
         <tr>
           <td colspan="7" style="text-align: center; padding: 30px; color: #7f8c8d;">
@@ -68,28 +85,38 @@ const SubscriptionsPage = {
       return;
     }
 
-    users.forEach(user => {
-      const tr = document.createElement('tr');
-      const status = user.Status || 'Active';
-      const statusClass = status === 'Active' ? 'status-active' : 'status-inactive';
-      
+    subscriptions.forEach((sub) => {
+      const tr = document.createElement("tr");
+
+      // Map DB schema values. In your schema, status is a string ('Active')
+      const status = sub.status || "Active";
+      const statusClass =
+        status.toLowerCase() === "active" ? "status-active" : "status-inactive";
+
+      // Helper function to format dates nicely
+      const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        return new Date(dateString).toLocaleDateString();
+      };
+
       tr.innerHTML = `
-        <td>${user.Id}</td>
-        <td>${user.Name}</td>
-        <td>${user.PlanName || 'Basic'}</td>
+        <!-- Using lowercase/camelCase to match your MySQL schema -->
+        <td>${sub.id || "N/A"}</td>
+        <td>${sub.userName || sub.name || "Owner"}</td>
+        <td>${sub.planName || "Basic Plan"}</td>
         <td>
           <span class="status-badge ${statusClass}">${status}</span>
         </td>
-        <td>${user.StartDate || 'N/A'}</td>
-        <td>${user.EndDate || 'N/A'}</td>
-        <td>$${user.Price || '0'}</td>
+        <td>${formatDate(sub.startDate)}</td>
+        <td>${formatDate(sub.endDate)}</td>
+        <td>PKR ${sub.price !== undefined ? sub.price : "0"}</td>
       `;
       tbody.appendChild(tr);
     });
   },
 
-  showError: function(message) {
-    const tbody = document.getElementById('subscriptionsBody');
+  showError: function (message) {
+    const tbody = document.getElementById("subscriptionsBody");
     tbody.innerHTML = `
       <tr>
         <td colspan="7" style="text-align: center; padding: 30px; color: #e74c3c;">
@@ -98,10 +125,12 @@ const SubscriptionsPage = {
         </td>
       </tr>
     `;
-  }
+  },
 };
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener("DOMContentLoaded", function () {
+  // Prevent double initialization if your app.js handles it
+  if (document.getElementById("subscriptions")) return;
   SubscriptionsPage.init();
 });

@@ -1,13 +1,12 @@
 // Users Page
 const UsersPage = {
-  render: function() {
+  render: function () {
     return `
       <section id="users" class="page-section">
         <div class="dashboard-header">
           <h2><i class="fas fa-users"></i> Registered Users</h2>
-          <p>All users in the system</p>
+          <p>All owners in the system</p>
         </div>
-
         <div class="table-container">
           <table id="usersTable">
             <thead>
@@ -32,53 +31,66 @@ const UsersPage = {
     `;
   },
 
-  init: function() {
-    const mainContent = document.getElementById('main-content');
-    const section = document.createElement('div');
+  init: function () {
+    const mainContent = document.getElementById("main-content");
+    const section = document.createElement("div");
     section.innerHTML = this.render();
     mainContent.appendChild(section.firstElementChild);
+    this.load();
   },
 
-  load: function() {
-    APIClient.get('/api/subscription/users')
-      .then(data => {
-        this.render_table(data.users || []);
+  load: function () {
+    APIClient.get("/api/v1/system-owners")
+      .then((response) => {
+        const usersArray = response.data || [];
+        this.render_table(usersArray);
       })
-      .catch(err => {
-        console.error('Error loading users:', err);
-        this.showError('Failed to load users');
+      .catch((err) => {
+        console.error("Error loading users:", err);
+        this.showError("Failed to load users. Please check your connection.");
       });
   },
 
-  render_table: function(users) {
-    const tbody = document.getElementById('usersBody');
-    tbody.innerHTML = '';
+  render_table: function (users) {
+    const tbody = document.getElementById("usersBody");
+    tbody.innerHTML = "";
 
     if (users.length === 0) {
       tbody.innerHTML = `
         <tr>
           <td colspan="5" style="text-align: center; padding: 30px; color: #7f8c8d;">
             <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i>
-            <p>No users found</p>
+            <p>No owners found</p>
           </td>
         </tr>
       `;
       return;
     }
 
-    users.forEach(user => {
-      const tr = document.createElement('tr');
+    users.forEach((user) => {
+      // Matches MySQL schema where status 1 is active
+      const isActive = user.status === 1;
+      const statusText = isActive ? "Active" : "Inactive";
+      const statusClass = isActive ? "status-active" : "status-inactive";
+
+      // Dynamic button text based on current status
+      const actionText = isActive ? "Deactivate" : "Activate";
+      const actionClass = isActive ? "deactivate-btn" : "activate-btn";
+
+      const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${user.Id}</td>
-        <td>${user.Name}</td>
-        <td>${user.Email}</td>
+        <td>${user.id}</td>
+        <td>${user.name}</td>
+        <td>${user.email}</td>
         <td>
-          <span class="status-badge status-active">Active</span>
+          <span class="status-badge ${statusClass}">${statusText}</span>
         </td>
         <td>
           <div class="action-links">
-            <a href="#" class="edit" onclick="UsersPage.editUser(${user.Id}); return false;">Edit</a>
-            <a href="#" class="delete" onclick="UsersPage.deleteUser(${user.Id}); return false;">Delete</a>
+            <a href="#" class="edit" onclick="UsersPage.editUser(${user.id}); return false;">Edit</a>
+            <a href="#" class="${actionClass}" onclick="UsersPage.toggleStatus(${user.id}, ${user.status}); return false;">
+              ${actionText}
+            </a>
           </div>
         </td>
       `;
@@ -86,34 +98,44 @@ const UsersPage = {
     });
   },
 
-  editUser: function(userId) {
-    console.log('Edit user:', userId);
-    // Add edit functionality
+  editUser: function (userId) {
+    console.log("Edit user:", userId);
     alert(`Edit functionality for user ${userId}`);
   },
 
-  deleteUser: function(userId) {
-    if (confirm('Are you sure you want to delete this user?')) {
-      console.log('Delete user:', userId);
-      // Add delete functionality
-      alert(`Delete functionality for user ${userId}`);
-    }
+  // New Status Toggle Logic
+  toggleStatus: function (userId, currentStatus) {
+    const newStatus = currentStatus === 1 ? 0 : 1;
+    const action = newStatus === 1 ? "activate" : "deactivate";
+
+    if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+
+    APIClient.post(`/api/v1/system-owners/users/status`, {
+      id: userId,
+      status: newStatus,
+    })
+      .then(() => {
+        alert(`User status updated successfully!`);
+        UsersPage.load(); // reloads table
+      })
+      .catch((err) => {
+        console.error("Error updating status:", err);
+        alert("Failed to update user status.");
+      });
   },
 
-  showError: function(message) {
-    const tbody = document.getElementById('usersBody');
+  showError: function (message) {
+    const tbody = document.getElementById("usersBody");
     tbody.innerHTML = `
-      <tr>
-        <td colspan="5" style="text-align: center; padding: 30px; color: #e74c3c;">
-          <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 10px;"></i>
-          <p>${message}</p>
-        </td>
-      </tr>
-    `;
-  }
+      <tr> 
+        <td colspan="5" style="text-align: center; padding: 30px; color: #e74c3c;"> 
+          <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 10px;"></i> 
+          <p>${message}</p> 
+        </td> 
+      </tr>`;
+  },
 };
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener("DOMContentLoaded", function () {
   UsersPage.init();
 });
