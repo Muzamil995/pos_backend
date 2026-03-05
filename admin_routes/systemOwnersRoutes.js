@@ -6,6 +6,6 @@ const systemOwnersController = require("../admin_controllers/systemOwnersControl
 // The route will be GET /
 router.get("/", systemOwnersController.getSystemOwners);
 
-router.post("/users/status", systemOwnersController.toggleUserStatus);
+router.post("/status", systemOwnersController.toggleUserStatus);
 
 module.exports = router;

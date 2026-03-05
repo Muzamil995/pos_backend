@@ -8,7 +8,7 @@ const App = {
 
     if (!token) {
       console.warn("Unauthorized access attempt. Redirecting to login...");
-      window.location.replace("login.html");
+      window.location.replace("admin_login.html");
       return; // Stop initialization completely
     }
 
@@ -69,7 +69,7 @@ const App = {
         e.preventDefault();
         localStorage.removeItem("jwt_token");
         localStorage.removeItem("user");
-        window.location.replace("login.html");
+        window.location.replace("admin_login.html");
       });
     }
   },

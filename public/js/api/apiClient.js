@@ -28,7 +28,7 @@ const APIClient = {
       console.warn("Session expired or unauthorized. Redirecting to login...");
       this.clearToken();
       localStorage.removeItem("user");
-      window.location.replace("login.html");
+      window.location.replace("admin_login.html");
       throw new Error("Session expired");
     }
 

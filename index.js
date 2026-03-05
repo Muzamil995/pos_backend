@@ -6,6 +6,7 @@ const pool = require("./models/db");
 
 // ================= ROUTE IMPORTS =================
 const authRoutes = require("./routes/auth");
+const systemProfileRoutes = require("./admin_routes/systemProfileRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const productRoutes = require("./routes/productRoutes");
@@ -39,6 +40,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const API_PREFIX = "/api/v1";
 
 // ================= ROUTES =================
+app.use(`${API_PREFIX}/system-profile`, systemProfileRoutes);
 app.use(`${API_PREFIX}/system-owners`, systemOwnersRoutes);
 app.use(`${API_PREFIX}/system-subscriptions`, systemSubscriptionsRoutes);
 app.use(`${API_PREFIX}/system-plans`, systemPlansRoutes);
